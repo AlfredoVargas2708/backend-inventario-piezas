@@ -20,6 +20,11 @@ app.get("/db-test", async (req, res) => {
   return res.status(result.ok ? 200 : 500).json(result);
 });
 
+app.get("/columns", async (req, res) => {
+  const columns = Object.keys(Lego.rawAttributes);
+  return res.status(200).json(columns);
+});
+
 app.get("/search", async (req, res) => {
   try {
     const { column, value, pageSize, page } = req.query;
