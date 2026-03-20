@@ -77,6 +77,36 @@ app.get("/search", async (req, res) => {
   }
 });
 
+app.get("/searchAllByColumn", async (req, res) => {
+  try {
+    const { column } = req.query;
+
+    if (!column) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Falta parámetro column" });
+    }
+
+    const results = await Lego.findAll({
+      attributes: [column],
+      group: [column],
+      raw: true,
+    });
+
+    return res.json({
+      ok: true,
+      data: results
+    });
+  } catch (error) {
+    console.error("Error en /searchAllByColumn:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al realizar la búsqueda",
+      error: error.message,
+    });
+  }
+});
+
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`Servidor escuchando en http://localhost:${port}`);
