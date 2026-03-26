@@ -25,6 +25,36 @@ app.get("/columns", async (req, res) => {
   return res.status(200).json(columns);
 });
 
+app.get("/value", async (req, res) => {
+  try {
+    const { column, value } = req.query;
+
+    if (!column || !value) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Faltan parámetros column o value" });
+    }
+
+    const result = await Lego.findOne({
+      where: {
+        [column]: value,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error en /search:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al realizar la búsqueda",
+      error: error.message,
+    });
+  }
+});
+
 app.get("/search", async (req, res) => {
   try {
     const { column, value, pageSize, page } = req.query;
@@ -32,7 +62,10 @@ app.get("/search", async (req, res) => {
     if (!column || !value) {
       return res
         .status(400)
-        .json({ ok: false, message: "Faltan parámetros column o value" });
+        .json({
+          ok: false,
+          message: "Faltan parámetros column o value o page o pageSize",
+        });
     }
 
     const parsedPage = Math.max(1, parseInt(page) || 1);
@@ -79,9 +112,9 @@ app.get("/search", async (req, res) => {
 
 app.get("/searchAllByColumn", async (req, res) => {
   try {
-    const { column } = req.query;
+    const { column, value_column, other_column } = req.query;
 
-    if (!column) {
+    if (!column || !value_column || !other_column) {
       return res
         .status(400)
         .json({ ok: false, message: "Falta parámetro column" });
@@ -89,13 +122,16 @@ app.get("/searchAllByColumn", async (req, res) => {
 
     const results = await Lego.findAll({
       attributes: [column],
+      where: {
+        [other_column]: value_column, // 👈 filtro aquí
+      },
       group: [column],
       raw: true,
     });
 
     return res.json({
       ok: true,
-      data: results
+      data: results,
     });
   } catch (error) {
     console.error("Error en /searchAllByColumn:", error);
