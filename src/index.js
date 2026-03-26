@@ -27,17 +27,18 @@ app.get("/columns", async (req, res) => {
 
 app.get("/value", async (req, res) => {
   try {
-    const { column, value } = req.query;
+    const { columns, values } = req.query;
 
-    if (!column || !value) {
+    if (!columns || !values) {
       return res
         .status(400)
-        .json({ ok: false, message: "Faltan parámetros column o value" });
+        .json({ ok: false, message: "Faltan parámetros columns o values" });
     }
 
     const result = await Lego.findOne({
       where: {
-        [column]: value,
+        [columns.split(",")[0].trim()]: values.split(",")[0].trim(),
+        [columns.split(",")[1].trim()]: values.split(",")[1].trim(),
       },
     });
 
@@ -60,12 +61,10 @@ app.get("/search", async (req, res) => {
     const { column, value, pageSize, page } = req.query;
 
     if (!column || !value) {
-      return res
-        .status(400)
-        .json({
-          ok: false,
-          message: "Faltan parámetros column o value o page o pageSize",
-        });
+      return res.status(400).json({
+        ok: false,
+        message: "Faltan parámetros column o value o page o pageSize",
+      });
     }
 
     const parsedPage = Math.max(1, parseInt(page) || 1);
