@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { testConnection } = require("./sequelize/db");
 const Lego = require("./sequelize/model");
+const { fn, col } = require("sequelize");
 
 dotenv.config();
 
@@ -120,9 +121,9 @@ app.get("/searchAllByColumn", async (req, res) => {
     }
 
     const results = await Lego.findAll({
-      attributes: [column],
+      attributes: [column, [fn("SUM", col("cantidad")), "cantidad_total"]],
       where: {
-        [other_column]: value_column, // 👈 filtro aquí
+        [other_column]: value_column,
       },
       group: [column],
       raw: true,
@@ -137,6 +138,89 @@ app.get("/searchAllByColumn", async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Error al realizar la búsqueda",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/agregar", async (req, res) => {
+  try {
+    const body = req.body;
+
+    if (!body)
+      return res
+        .status(400)
+        .json({ ok: false, message: "Falta el elemento a agregar" });
+
+    await Lego.create(body);
+
+    return res.json({
+      ok: true,
+      message: "Elemento creado correctamente",
+    });
+  } catch (error) {
+    console.error("Error en /editar:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al editar el elemento",
+      error: error.message,
+    });
+  }
+});
+
+app.put("/editar", async (req, res) => {
+  try {
+    const body = req.body;
+
+    if (!body)
+      return res
+        .status(400)
+        .json({ ok: false, message: "Falta el elemento a agregar" });
+
+    await Lego.update(body, {
+      where: {
+        id: body.id,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      message: "Elemento editado correctamente",
+    });
+  } catch (error) {
+    console.error("Error en /editar:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al editar el elemento",
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/eliminar/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id)
+      return res
+        .status(400)
+        .json({ ok: false, message: "Falta el identificador para eliminar" });
+
+    await Lego.destroy({
+      where: {
+        id: id,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      message: "Elemento eliminado correctamente",
+    });
+  } catch (error) {
+    console.error("Error en /eliminar:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al eliminar el elemento",
       error: error.message,
     });
   }
