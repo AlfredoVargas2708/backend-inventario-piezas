@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const { testConnection } = require("./sequelize/db");
 const Lego = require("./sequelize/model");
 const { fn, col } = require("sequelize");
+const axios = require("axios");
 
 dotenv.config();
 
@@ -110,6 +111,39 @@ app.get("/search", async (req, res) => {
   }
 });
 
+app.post("/duplicado", async (req, res) => {
+  try {
+    const { lego, pieza, task, cantidad } = req.body;
+
+    if (!lego || !pieza || !task || !cantidad) {
+      return res.status(400).json({
+        ok: false,
+        message: "Faltan campos obligatorios",
+      });
+    }
+
+    const existe = await Lego.findOne({
+      where: {
+        lego: lego,
+        pieza: pieza,
+        task: task,
+        cantidad: cantidad,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      existe: !!existe, // true o false
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error del servidor",
+    });
+  }
+});
+
 app.get("/searchAllByColumn", async (req, res) => {
   try {
     const { column, value_column, other_column } = req.query;
@@ -194,6 +228,33 @@ app.put("/editar", async (req, res) => {
       message: "Error al editar el elemento",
       error: error.message,
     });
+  }
+});
+
+const qs = require("querystring"); // o puedes usar URLSearchParams
+
+app.post("/brickset/instructions", async (req, res) => {
+  try {
+    const { setNumber } = req.body;
+
+    const response = await axios.post(
+      "https://brickset.com/api/v3.asmx/getInstructions2",
+      new URLSearchParams({
+        apiKey: process.env.BRICKSET_API_KEY,
+        userHash: "",
+        setNumber: setNumber, // directo, sin params wrapper
+      }).toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    res.status(500).json({ error: "Error al consultar Brickset" });
   }
 });
 
