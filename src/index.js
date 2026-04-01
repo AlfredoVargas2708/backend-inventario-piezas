@@ -5,6 +5,7 @@ const { testConnection } = require("./sequelize/db");
 const Lego = require("./sequelize/model");
 const { fn, col } = require("sequelize");
 const axios = require("axios");
+const { PDFDocument } = require("pdf-lib");
 
 dotenv.config();
 
@@ -231,30 +232,65 @@ app.put("/editar", async (req, res) => {
   }
 });
 
-const qs = require("querystring"); // o puedes usar URLSearchParams
-
-app.post("/brickset/instructions", async (req, res) => {
+app.post("/brickset/instructions/merged", async (req, res) => {
   try {
     const { setNumber } = req.body;
 
-    const response = await axios.post(
+    // Reusar la lógica existente para obtener las instrucciones
+    const bricksetResponse = await axios.post(
       "https://brickset.com/api/v3.asmx/getInstructions2",
       new URLSearchParams({
         apiKey: process.env.BRICKSET_API_KEY,
         userHash: "",
-        setNumber: setNumber, // directo, sin params wrapper
+        setNumber: setNumber,
       }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      },
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
     );
 
-    res.json(response.data);
+    const instructions = bricksetResponse.data.instructions;
+
+    if (!instructions || instructions.length === 0) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "No se encontraron instrucciones" });
+    }
+
+    // Merge de los PDFs
+    const mergedPdf = await PDFDocument.create();
+
+    const instruccionsPDF = [];
+
+    for (let index = 0; index < instructions.length; index += 2) {
+      const element = instructions[index];
+      instruccionsPDF.push(element);
+    }
+
+    for (const instruction of instruccionsPDF) {
+      const pdfResponse = await axios.get(instruction.URL, {
+        responseType: "arraybuffer",
+      });
+      const pdf = await PDFDocument.load(pdfResponse.data);
+      const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+      pages.forEach((page) => mergedPdf.addPage(page));
+    }
+
+    const mergedPdfBytes = await mergedPdf.save();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="instructions-${setNumber}.pdf"`,
+    );
+    res.send(Buffer.from(mergedPdfBytes));
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    res.status(500).json({ error: "Error al consultar Brickset" });
+    console.error("Error al mergear PDFs:", error.message);
+    res
+      .status(500)
+      .json({
+        ok: false,
+        message: "Error al generar el PDF",
+        error: error.message,
+      });
   }
 });
 
