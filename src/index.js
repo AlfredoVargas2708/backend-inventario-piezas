@@ -38,19 +38,31 @@ app.get("/value", async (req, res) => {
         .json({ ok: false, message: "Faltan parámetros columns o values" });
     }
 
-    const result = await Lego.findOne({
-      where: {
-        [columns.split(",")[0].trim()]: values.split(",")[0].trim(),
-        [columns.split(",")[1].trim()]: values.split(",")[1].trim(),
-      },
-    });
+    const columnsArray = columns.split(",").map((c) => c.trim());
+    const valuesArray = values.split(",").map((v) => v.trim());
+
+    if (columnsArray.length !== valuesArray.length) {
+      return res
+        .status(400)
+        .json({
+          ok: false,
+          message: "Columns y values deben tener la misma cantidad",
+        });
+    }
+
+    // Construir where dinámicamente
+    const where = Object.fromEntries(
+      columnsArray.map((col, i) => [col, valuesArray[i]]),
+    );
+
+    const result = await Lego.findOne({ where });
 
     return res.json({
       ok: true,
       data: result,
     });
   } catch (error) {
-    console.error("Error en /search:", error);
+    console.error("Error en /value:", error);
     res.status(500).json({
       ok: false,
       message: "Error al realizar la búsqueda",
@@ -156,7 +168,12 @@ app.get("/searchAllByColumn", async (req, res) => {
     }
 
     const results = await Lego.findAll({
-      attributes: [column, [fn("SUM", col("cantidad")), "cantidad_total"]],
+      attributes: [
+        column,
+        [fn("SUM", col("cantidad")), "cantidad_total"],
+        [fn("array_agg", fn("DISTINCT", col("task"))), "tasks"],
+        [fn("array_agg", fn("DISTINCT", col("id"))), "ids"]
+      ],
       where: {
         [other_column]: value_column,
       },
@@ -284,13 +301,11 @@ app.post("/brickset/instructions/merged", async (req, res) => {
     res.send(Buffer.from(mergedPdfBytes));
   } catch (error) {
     console.error("Error al mergear PDFs:", error.message);
-    res
-      .status(500)
-      .json({
-        ok: false,
-        message: "Error al generar el PDF",
-        error: error.message,
-      });
+    res.status(500).json({
+      ok: false,
+      message: "Error al generar el PDF",
+      error: error.message,
+    });
   }
 });
 
