@@ -14,15 +14,6 @@ app.use(cors());
 app.use(express.json());
 const port = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  return res.json({ ok: true, message: "Servidor levantado" });
-});
-
-app.get("/db-test", async (req, res) => {
-  const result = await testConnection();
-  return res.status(result.ok ? 200 : 500).json(result);
-});
-
 app.get("/columns", async (req, res) => {
   const columns = Object.keys(Lego.rawAttributes);
   return res.status(200).json(columns);
@@ -42,12 +33,10 @@ app.get("/value", async (req, res) => {
     const valuesArray = values.split(",").map((v) => v.trim());
 
     if (columnsArray.length !== valuesArray.length) {
-      return res
-        .status(400)
-        .json({
-          ok: false,
-          message: "Columns y values deben tener la misma cantidad",
-        });
+      return res.status(400).json({
+        ok: false,
+        message: "Columns y values deben tener la misma cantidad",
+      });
     }
 
     // Construir where dinámicamente
@@ -89,7 +78,7 @@ app.get("/search", async (req, res) => {
 
     const results = await Lego.findAndCountAll({
       where: { [column]: value },
-      order: [["id", "ASC"]],
+      order: [[column === "pieza" ? "lego" : "pieza", "ASC"]],
       // ✅ Solo aplica limit/offset si vienen los dos parámetros
       ...(hasPagination && {
         limit: parsedPageSize,
@@ -124,39 +113,6 @@ app.get("/search", async (req, res) => {
   }
 });
 
-app.post("/duplicado", async (req, res) => {
-  try {
-    const { lego, pieza, task, cantidad } = req.body;
-
-    if (!lego || !pieza || !task || !cantidad) {
-      return res.status(400).json({
-        ok: false,
-        message: "Faltan campos obligatorios",
-      });
-    }
-
-    const existe = await Lego.findOne({
-      where: {
-        lego: lego,
-        pieza: pieza,
-        task: task,
-        cantidad: cantidad,
-      },
-    });
-
-    return res.json({
-      ok: true,
-      existe: !!existe, // true o false
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      ok: false,
-      message: "Error del servidor",
-    });
-  }
-});
-
 app.get("/searchAllByColumn", async (req, res) => {
   try {
     const { column, value_column, other_column } = req.query;
@@ -172,7 +128,7 @@ app.get("/searchAllByColumn", async (req, res) => {
         column,
         [fn("SUM", col("cantidad")), "cantidad_total"],
         [fn("array_agg", fn("DISTINCT", col("task"))), "tasks"],
-        [fn("array_agg", fn("DISTINCT", col("id"))), "ids"]
+        [fn("array_agg", fn("DISTINCT", col("id"))), "ids"],
       ],
       where: {
         [other_column]: value_column,
@@ -190,6 +146,35 @@ app.get("/searchAllByColumn", async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Error al realizar la búsqueda",
+      error: error.message,
+    });
+  }
+});
+
+app.put("/editar", async (req, res) => {
+  try {
+    const body = req.body;
+
+    if (!body)
+      return res
+        .status(400)
+        .json({ ok: false, message: "Falta el elemento a agregar" });
+
+    await Lego.update(body, {
+      where: {
+        id: body.id,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      message: "Elemento editado correctamente",
+    });
+  } catch (error) {
+    console.error("Error en /editar:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Error al editar el elemento",
       error: error.message,
     });
   }
@@ -220,30 +205,30 @@ app.post("/agregar", async (req, res) => {
   }
 });
 
-app.put("/editar", async (req, res) => {
+app.delete("/eliminar/:id", async (req, res) => {
   try {
-    const body = req.body;
+    const { id } = req.params;
 
-    if (!body)
+    if (!id)
       return res
         .status(400)
-        .json({ ok: false, message: "Falta el elemento a agregar" });
+        .json({ ok: false, message: "Falta el identificador para eliminar" });
 
-    await Lego.update(body, {
+    await Lego.destroy({
       where: {
-        id: body.id,
+        id: id,
       },
     });
 
     return res.json({
       ok: true,
-      message: "Elemento editado correctamente",
+      message: "Elemento eliminado correctamente",
     });
   } catch (error) {
-    console.error("Error en /editar:", error);
+    console.error("Error en /eliminar:", error);
     res.status(500).json({
       ok: false,
-      message: "Error al editar el elemento",
+      message: "Error al eliminar el elemento",
       error: error.message,
     });
   }
@@ -304,35 +289,6 @@ app.post("/brickset/instructions/merged", async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Error al generar el PDF",
-      error: error.message,
-    });
-  }
-});
-
-app.delete("/eliminar/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!id)
-      return res
-        .status(400)
-        .json({ ok: false, message: "Falta el identificador para eliminar" });
-
-    await Lego.destroy({
-      where: {
-        id: id,
-      },
-    });
-
-    return res.json({
-      ok: true,
-      message: "Elemento eliminado correctamente",
-    });
-  } catch (error) {
-    console.error("Error en /eliminar:", error);
-    res.status(500).json({
-      ok: false,
-      message: "Error al eliminar el elemento",
       error: error.message,
     });
   }

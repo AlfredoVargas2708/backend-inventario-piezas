@@ -11,39 +11,39 @@ const Lego = sequelize.define(
     },
     pieza: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
     },
     lego: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
     },
     cantidad: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
     },
     task: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
     },
     set_nombre: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     esta_pedido: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     esta_reemplazado: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     esta_completo: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     comentarios: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
   },
   {
